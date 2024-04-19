@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv1
+spec:
+  capacity:  #容量
+    storage: 10Gi
+  accessModes:  #访问模式
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle  #回收策略
+  storageClassName: kubesphere
+  hostPath:
+    path: /data/kubesphere

@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    name: postgres
+spec:
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+  selector:
+    app: postgres
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: postgres
+ labels:
+   app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+      annotations:
+        blackbox_path: /
+        blackbox_port: '5432'
+        blackbox_scheme: tcp
+    spec:
+      securityContext:
+       runAsUser: 999
+       runAsGroup: 999
+      nodeName: worker-1
+      restartPolicy: Always
+      enableServiceLinks: true #表示是否将同一名称空间Service的相关信息注入到Pod的环境变量中，默认是true
+      containers:
+      - name: postgres
+        image: postgres:12.1
+        imagePullPolicy: "IfNotPresent"
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: root
+        - name: POSTGRES_PASSWORD
+          value: "123" 
+        - name: DB_NAME
+          value: gitlab
+        - name: DB_EXTENSION
+          value: pg_trgm
+        ports:
+        - name: postgres
+          containerPort: 5432
+        volumeMounts:
+         - mountPath: /var/lib/postgresql/data
+           name: data
+        livenessProbe:
+           exec:
+             command:
+             - pg_isready
+             - -h
+             - localhost
+             - -U
+             - postgres
+           initialDelaySeconds: 30
+           timeoutSeconds: 5
+        readinessProbe:
+           exec:
+             command:
+             - pg_isready
+             - -h
+             - localhost
+             - -U
+             - postgres
+           initialDelaySeconds: 5
+           timeoutSeconds: 1
+      volumes:
+      - name: data
+        hostPath:
+         path: /opt/postgresql
+

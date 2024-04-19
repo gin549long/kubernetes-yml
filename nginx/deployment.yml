@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+#kind: DaemonSet
+kind: Deployment
+metadata:
+  name: nginx 
+  labels:
+    app: nginx 
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+      annotations:
+        blackbox_path: "/"
+        blackbox_port: '80'
+        blackbox_scheme: "http"
+    spec:
+      containers:
+      - name: logs
+        image: nginx
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: varlog
+          mountPath: /tmp/log
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log

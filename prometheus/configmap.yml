@@ -1,0 +1,334 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: default
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval:     30s
+      evaluation_interval: 30s
+      external_labels:
+        cluster: "kubernetes"
+    ############ 数据采集job ###################
+    scrape_configs:
+    - job_name: prometheus
+      static_configs:
+      - targets: ['127.0.0.1:9090']
+        labels:
+          instance: prometheus
+
+    - job_name: 'kubernetes-etcd'
+      tls_config:
+        ca_file: /prometheus/ca.pem 
+        cert_file: /prometheus/etcd.pem
+        key_file: /prometheus/etcd-key.pem
+      scheme: https
+      static_configs:
+      - targets:
+        - '192.168.10.21:2379'
+    
+    - job_name: 'kubernetes-apiservers'
+      kubernetes_sd_configs:
+      - role: endpoints
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+    - job_name: 'kubernetes-cadvisor'
+      scheme: https
+      tls_config:
+        insecure_skip_verify: true
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - target_label: __address__
+        replacement: kubernetes.default.svc:443
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+    
+    - job_name: 'kubernetes-kubelet'
+      metrics_path: /metrics/cadvisor
+      scheme: https
+      tls_config:
+       insecure_skip_verify: true
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+    
+    - job_name: kubernetes-coredns
+      kubernetes_sd_configs: # k8s service discovery conf 
+      - role: endpoints      # 去k8s的apiserver里拿取endpoint资源清单
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_endpoints_label_k8s_app]
+        regex: coredns
+        action: keep
+      - source_labels: [__meta_kubernetes_service_label_kubernetes_io_name]
+        regex: CoreDNS
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_ip]
+        regex: (.+)
+        target_label: __address__
+        replacement: ${1}:9153
+      - source_labels: [__meta_kubernetes_endpoints_name]
+        action: replace
+        target_label: endpoint
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        target_label: service
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: namespace
+    
+    - job_name: kubernetes-kube-proxy
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):10250'
+        replacement: '${1}:10249'
+        target_label: __address__
+        action: replace
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+    
+    - job_name: kubernetes-scheduler
+      kubernetes_sd_configs:
+      - role: node
+      scheme: https
+      tls_config:
+       insecure_skip_verify: true
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):10250'
+        replacement: '${1}:10259'
+        target_label: __address__
+        action: replace
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+      - source_labels: [__meta_kubernetes_node_label_kubernetes_io_hostname]
+        regex: 192.168.10.21
+        action: drop 
+      #- source_labels: [__meta_kubernetes_node_label_kubernetes_io_role]
+      - source_labels: [__meta_kubernetes_node_label_node_role_kubernetes_io_master]
+        regex: master
+        action: keep
+    
+    - job_name: kubernetes-controller-manager
+      kubernetes_sd_configs:
+      - role: node
+      scheme: https
+      tls_config:
+       insecure_skip_verify: true
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_node_label_kubernetes_io_hostname]
+        regex: worker-1
+        action: drop 
+      - source_labels: [__address__]
+        regex: '(.*):10250'
+        replacement: '${1}:10257'
+        target_label: __address__
+        action: replace
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+       #- source_labels: [__meta_kubernetes_node_label_kubernetes_io_role]
+         #regex: master
+         #action: keep
+    
+    - job_name: kubernetes-state-metrics
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        regex: kube-state-metrics
+        action: keep
+      - source_labels: [__meta_kubernetes_pod_ip]
+        regex: (.+)
+        target_label: __address__
+        replacement: ${1}:8080
+      - source_labels: [__meta_kubernetes_endpoints_name]
+        action: replace
+        target_label: endpoint
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: pod
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        target_label: service
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: namespace
+    
+    - job_name: kubernetes-ingress-controller
+      kubernetes_sd_configs:
+      - role: node
+      relabel_configs:
+      - source_labels: [__address__]
+        regex: '(.*):10250'
+        replacement: '${1}:10254'
+        target_label: __address__
+        action: replace
+      - action: labelmap
+        regex: __meta_kubernetes_node_label_(.+)
+
+    - job_name: 'node-exporter'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+      - source_labels: [__meta_kubernetes_pod_label_name]
+        regex: node-exporter
+        action: keep
+      - source_labels: ['__meta_kubernetes_pod_label_daemon', '__meta_kubernetes_pod_node_name']
+        regex: 'node-exporter;(.*)'
+        action: replace
+        target_label: nodename
+
+    - job_name: 'blackbox_http_pod_probe'
+      metrics_path: /probe
+      kubernetes_sd_configs:
+      - role: pod
+      params:
+        module: #[http_2xx,http_3xx]
+        - "http_get_2xx"
+        - "http_get_3xx"
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_blackbox_scheme]
+        action: keep
+        regex: http
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_blackbox_port,  __meta_kubernetes_pod_annotation_blackbox_path]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+);(.+)
+        replacement: $1:$2$3
+        target_label: __param_target
+      - action: replace
+        target_label: __address__
+        replacement: blackbox-exporter.kube-system:9115
+      - source_labels: [__param_target]
+        target_label: instance
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+
+    - job_name: 'blackbox_tcp_pod_probe'
+      metrics_path: /probe
+      kubernetes_sd_configs:
+      - role: pod
+      params:
+        module: [tcp_connect]
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_blackbox_scheme]
+        action: keep
+        regex: tcp
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_blackbox_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __param_target
+      - action: replace
+        target_label: __address__
+        replacement: blackbox-exporter.kube-system:9115
+      - source_labels: [__param_target]
+        target_label: instance
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name 
+
+    - job_name: 'kubernetes-service-endpoints'
+      kubernetes_sd_configs:
+      - role: endpoints
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+        action: replace
+        target_label: __scheme__
+        regex: (https?)
+      - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__,__meta_kubernetes_service_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+      - action: labelmap
+        regex: __meta_kubernetes_service_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_service_name]
+        action: replace
+        target_label: kubernetes_name
+
+    - job_name: 'kubernetes-pods-monitor'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__,__meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes__namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+      - source_labels: [__meta_kubernetes_pod_label_pod_template_hash]
+        regex: '(.*)'
+        replacement: 'k8s'
+        action: replace
+        target_label: Env
+
+    ############ 指定告警规则文件路径位置 ###################
+    rule_files:
+    - /etc/prometheus/rules/*.rules

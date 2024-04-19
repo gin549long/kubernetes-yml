@@ -1,0 +1,18 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nacos-headless
+  namespace: default
+
+spec:
+  rules:
+  - host: richinfo.666.cn
+    http:
+      paths:
+      - path: /nacos
+        pathType: Prefix
+        backend:
+          service:
+            name: nacos-headless
+            port:
+             name: server

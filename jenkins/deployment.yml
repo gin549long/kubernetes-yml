@@ -1,0 +1,66 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: jenkins
+  labels: 
+    name: jenkins
+spec:
+  replicas: 1
+  selector:
+    matchLabels: 
+      name: jenkins
+  template:
+    metadata:
+      labels: 
+        app: jenkins 
+        name: jenkins
+      annotations:
+        blackbox_path: "/jenkins/login"
+        blackbox_port: "8080"
+        blackbox_scheme: "http"
+    spec:
+      #volumes:
+      #- name: docker
+      #  hostPath: 
+      #    path: /run/docker.sock
+      #    type: ''
+      #nodeSelector:
+      # k8s: master
+      nodeName: worker-1
+      containers:
+      - name: jenkins
+        image: easzlab.io.local:5000/easzlab/jenkinsci/blueocean:v2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 50000
+          protocol: TCP
+        env:
+        - name: JAVA_OPTS
+          value: -Xmx512m -Xms512m
+        - name: JENKINS_OPTS
+          value: --prefix=/jenkins
+        - name: JENKINS_ARGS
+          value: --prefix=/jenkins
+        volumeMounts:
+        - name: jenkins
+          mountPath: /var/jenkins_home
+      #  - name: docker
+      #    mountPath: /run/docker.sock
+      volumes:
+      - name: jenkins
+        hostPath:
+         path: /opt/jenkins 
+         type: Directory
+      #imagePullSecrets:
+      #- name: harbor
+      #securityContext: 
+      #  runAsUser: 0
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: 
+      maxUnavailable: 1
+      maxSurge: 1
+  revisionHistoryLimit: 7
+  progressDeadlineSeconds: 600

@@ -1,0 +1,4 @@
+root/3iZb9Z$7:XE8u
+3iZb9Z$7:XE8u
+CREATE USER postgres SUPERUSER;
+create database gitlab;

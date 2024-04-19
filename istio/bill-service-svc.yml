@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+ labels:
+  service: bill-service
+ name: bill-service
+ namespace: default
+spec:
+ ports:
+ - name: http
+   port: 80
+   targetPort: 80
+ selector:
+   service: bill-service
+ type: ClusterIP

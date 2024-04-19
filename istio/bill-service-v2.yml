@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ labels:
+  service: bill-service
+  version: v2
+ name: bill-service-v2
+spec:
+ replicas: 1
+ selector:
+  matchLabels:
+   service: bill-service
+   version: v2
+ template:
+  metadata:
+   labels:
+    service: bill-service
+    version: v2
+  spec:
+   containers:
+   - image: nginx:alpine
+     name: bill-service 
+     command: ["/bin/sh", "-c","echo 'this is bill-service-v2' > /usr/share/nginx/html/index.html;nginx -g 'daemon off;'"]

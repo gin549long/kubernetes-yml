@@ -1,0 +1,23 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler #对象类型
+metadata: #定义对象元数据
+ namespace: default #创建后隶属的namespace
+ name: busybox-podautoscaler #对象名称
+ labels:
+  app: busybox #自定义的label名称
+  version: v1 #自定义的api版本
+spec: #定义对象具体信息
+ scaleTargetRef: #定义水平伸缩的目标对象，Deployment、ReplicationController/ReplicaSet
+  apiVersion: apps/v1
+  kind: Deployment #目标对象类型为deployment
+  name: busybox #deployment 的具体名称
+ minReplicas: 2 #最小pod数
+ maxReplicas: 3 #最大pod数
+ metrics:
+ - resource:
+    name: cpu
+    target:
+     averageUtilization: 80
+     type: Utilization
+   type: Resource
+

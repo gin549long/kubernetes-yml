@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: grafana
+    name: grafana
+  name: grafana
+#  namespace: infra
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 7
+  selector:
+    matchLabels:
+      name: grafana
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: grafana
+        name: grafana
+      annotations:
+        blackbox_path: "/"
+        blackbox_port: "3000"
+        blackbox_scheme: "http"
+    spec:
+      nodeName: 192.168.10.12
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 65534
+          privileged: true
+        #env:
+        # - name: GF_PATHS_CONFIG
+        #   value: /var/lib/grafana/grafana.ini 
+        #args:
+        # - --config=/var/lib/grafana/grafana.ini
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/lib/grafana
+          name: data
+       # - mountPath: /etc/grafana/grafana.ini
+        #  name: conf
+#      imagePullSecrets:
+#      - name: harbor
+#      securityContext:
+#        runAsUser: 0
+      volumes:
+      - name: data
+        hostPath:
+         path: /data/grafana/
+         type: Directory
+      #- name: conf
+      #  hostPath:
+      #   path: /data/grafana/grafana.ini
+         #type: Directory
+

@@ -1,0 +1,133 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gitlab
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "300m"
+spec:
+ rules:
+ - host: gitlab.kubernetes.cn
+   http:
+     paths:
+     - backend:
+        service:
+          name: gitlab
+          port:
+            number: 80
+       path: /
+       pathType: Prefix
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitlab
+  labels:
+    app: gitlab
+  #namespace:
+spec:
+ ports:
+ - name: server
+   port: 80
+   targetPort: 80
+   protocol: TCP
+ - name: ssh
+   port: 22
+   targetPort: 22
+   protocol: TCP
+ selector:
+   app: gitlab
+
+--- 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  #namespace:
+  name: gitlab
+  labels:
+    app: gitlab
+spec:
+ replicas: 1
+ selector:
+   matchLabels:
+     app: gitlab
+ template:
+   metadata:
+     labels:
+       app: gitlab
+     annotations:
+       blackbox_port: "80"
+       blackbox_scheme: "http"
+       blackbox_path: "/"
+   spec:
+   # tolerations:
+   # - operator: "Exists"
+    nodeName: worker-1
+    restartPolicy: Always
+    containers:
+    - name: gitlab
+      image: sameersbn/gitlab:15.11.4
+      imagePullPolicy: "IfNotPresent"
+      env:
+      - name: TZ
+        value: Asia/Shanghai
+      - name: GITLAB_HOST
+        value: gitlab
+      - name: GITLAB_PORT
+        value: "80"
+      - name: GITLAB_SSH_PORT
+        value: "22"
+      - name: DB_TYPE
+        value: postgres
+      - name: DB_HOST
+        value: postgres
+      - name: DB_PORT
+        value: "5432"
+      - name: DB_USER
+        value: root
+      - name: DB_PASS
+        value: "123"
+      - name: DB_NAME
+        value: gitlab
+      - name: REDIS_HOST
+        value: redis
+      - name: REDIS_PORT
+        value: "6379"
+      - name: GITLAB_SECRETS_DB_KEY_BASE
+        value: long-and-random-alpha-numeric-string
+      - name: GITLAB_SECRETS_SECRET_KEY_BASE
+        value: long-and-random-alpha-numeric-string
+      - name: GITLAB_SECRETS_OTP_KEY_BASE
+        value: long-and-random-alpha-numeric-string
+      ports:
+      - name: http
+        containerPort: 80
+      - name: ssh
+        containerPort: 22
+      #resources:
+      #  limits:
+      #   cpu: 1m
+      #   memory: 500Mi
+      #  requests:
+      #   cpu: 1m
+      #   memory: 500Mi
+      volumeMounts:
+      - mountPath: /home/git/data
+        name: gitlab-data
+     # livenessProbe:
+     #    httpGet:
+     #      path: /
+     #      port: 80
+     #    initialDelaySeconds: 180
+     #    timeoutSeconds: 5
+     # readinessProbe:
+     #    httpGet:
+     #      path: /
+     #      port: 80
+     #    initialDelaySeconds: 5
+     #    timeoutSeconds: 1
+    volumes:
+    - name: gitlab-data
+      hostPath:
+       path: /opt/gitlab
+       #type: Directory

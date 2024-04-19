@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+ name: argocd
+ annotations:
+  #kubernetes.io/ingress.class: "nginx"
+  nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+  nginx.org/proxy-connect-timeout: "30s"
+  nginx.org/proxy-read-timeout: "40s"
+  nginx.ingress.kubernetes.io/proxy-body-size: "8m"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: argocd.kubernetes.cn
+    http:
+      paths:
+      - backend:
+          service:
+            name: argocd-server
+            port:
+              number: 443
+        path: /
+        pathType: Prefix

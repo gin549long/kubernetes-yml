@@ -1,0 +1,110 @@
+# Prometheus在生产环境中，一般采用一个单独的大内存node部署，采用污点让其它pod不会调度上来
+# --storage.tsdb.min-block-duration 内存中缓存最新多少分钟的TSDB数据，生产中会缓存更多的数据
+# --storage.tsdb.retention TSDB数据保留的时间，生产中会保留更多的数据
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "5"
+  labels:
+    name: prometheus
+  name: prometheus
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 7
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccount: prometheus
+      nodeName: worker-1
+      restartPolicy: Always
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9090
+          protocol: TCP
+        securityContext:
+          runAsUser: 65534
+          privileged: true
+        command:
+        - /bin/prometheus
+        args:
+        - --web.external-url=/
+        - --config.file=/etc/prometheus/prometheus.yml 
+        - --storage.tsdb.path=/prometheus
+        - --web.enable-lifecycle
+        - --query.max-concurrency=20 #最大查询并发数
+        - --web.max-connections=512  #最大并发连接数
+        - --web.read-timeout=20m #最大空闲超时时间
+        - --web.console.libraries=/etc/prometheus/console_libraries
+        - --web.console.templates=/etc/prometheus/consoles
+        - --storage.tsdb.min-block-duration=5m #只加载普罗米修斯其中5min中内的数据
+        - --storage.tsdb.retention.time=1h
+        #- --storage.tsdb.retention=24h#之后版本将废弃的选项用上面的代替
+         #readinessProbe:
+           #httpGet:
+             #path: /-/ready
+             #port: 9090
+           #initialDelaySeconds: 5
+           #timeoutSeconds: 10
+         #livenessProbe:
+           #httpGet:
+             #path: /-/healthy
+             #port: 9090
+           #initialDelaySeconds: 30
+           #timeoutSeconds: 30
+        volumeMounts:
+        - name: data
+          mountPath: /prometheus
+        - name: config
+          mountPath: /etc/prometheus
+        - name: prometheus-rules
+          mountPath: /etc/prometheus/rules
+        resources:
+          requests:  #启动所需要的资源
+            cpu: "10m"   #1000m=1000毫核=1核，所以如果是半核就是500m
+            memory: "500M"
+          limits:   #最大资源限制当你的容器资源达到limits的限制，杀死容器，不能让你一个容器把宿主机资源耗尽
+            cpu: "30m"
+            memory: "1Gi"
+     # imagePullSecrets:
+     # - name: harbor
+     # securityContext: 
+      #  runAsUser: 0
+      #serviceAccountName: prometheus
+      - name: configmap-reload
+        image: jimmidyson/configmap-reload:v0.5.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - "--volume-dir=/etc/config"
+        - "--webhook-url=http://localhost:9090/-/reload"
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/config
+          readOnly: true
+      volumes:
+      - name: data
+        hostPath: 
+         path: /opt/prometheus
+         type: Directory
+      - name: prometheus-rules
+        configMap:
+          name: prometheus-rules
+      - name: config
+        configMap:
+          name: prometheus-config
