@@ -182,6 +182,9 @@ data:
       kubernetes_sd_configs:
       - role: node
       relabel_configs:
+      - source_labels: [__meta_kubernetes_node_name]
+        regex: "master-1"
+        action: drop
       - source_labels: [__address__]
         regex: '(.*):10250'
         replacement: '${1}:10254'

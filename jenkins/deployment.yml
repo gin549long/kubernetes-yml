@@ -1,32 +1,33 @@
-kind: Deployment
 apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: jenkins
   labels: 
-    name: jenkins
+   name: jenkins
 spec:
   replicas: 1
   selector:
-    matchLabels: 
-      name: jenkins
+   matchLabels: 
+    name: jenkins
+  strategy:
+   type: RollingUpdate
+   rollingUpdate: 
+    maxUnavailable: 1
+    maxSurge: 1
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 600
   template:
     metadata:
-      labels: 
-        app: jenkins 
-        name: jenkins
-      annotations:
-        blackbox_path: "/jenkins/login"
-        blackbox_port: "8080"
-        blackbox_scheme: "http"
+     labels: 
+       app: jenkins 
+       name: jenkins
+     annotations:
+       blackbox_path: "/jenkins/login"
+       blackbox_port: "8080"
+       blackbox_scheme: "http"
     spec:
-      #volumes:
-      #- name: docker
-      #  hostPath: 
-      #    path: /run/docker.sock
-      #    type: ''
-      #nodeSelector:
-      # k8s: master
       nodeName: worker-1
+      serviceAccountName: jenkins
       containers:
       - name: jenkins
         image: easzlab.io.local:5000/easzlab/jenkinsci/blueocean:v2
@@ -46,21 +47,42 @@ spec:
         volumeMounts:
         - name: jenkins
           mountPath: /var/jenkins_home
-      #  - name: docker
-      #    mountPath: /run/docker.sock
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /jenkins/login
+            port: 8080
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          failureThreshold: 12
+        readinessProbe:
+          httpGet:
+            path: /jenkins/login
+            port: 8080
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          failureThreshold: 12
       volumes:
       - name: jenkins
         hostPath:
          path: /opt/jenkins 
          type: Directory
+      #  - name: docker
+      #    mountPath: /run/docker.sock
+      #volumes:
+      #- name: docker
+      #  hostPath: 
+      #    path: /run/docker.sock
+      #    type: ''
+      #nodeSelector:
+      # k8s: master
       #imagePullSecrets:
       #- name: harbor
       #securityContext: 
       #  runAsUser: 0
-  strategy:
-    type: RollingUpdate
-    rollingUpdate: 
-      maxUnavailable: 1
-      maxSurge: 1
-  revisionHistoryLimit: 7
-  progressDeadlineSeconds: 600
