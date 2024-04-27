@@ -54,28 +54,28 @@ spec:
         - name: JENKINS_ARGS
           value: --prefix=/jenkins
         resources:
-          limits:
-            cpu: 1000m
-            memory: 1Gi
-          requests:
-            cpu: 500m
-            memory: 512Mi
+         limits:
+           cpu: 1000m
+           memory: 1Gi
+         requests:
+           cpu: 500m
+           memory: 512Mi
         livenessProbe:
-          httpGet:
-            path: /jenkins/login
-            port: 8080
-          initialDelaySeconds: 90
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+         httpGet:
+          path: /jenkins/login
+          port: 8080
+         initialDelaySeconds: 30
+         periodSeconds: 10
+         timeoutSeconds: 5
+         failureThreshold: 3
         readinessProbe:
-          httpGet:
-            path: /jenkins/login
-            port: 8080
-          initialDelaySeconds: 60
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+         httpGet:
+          path: /jenkins/login
+          port: 8080
+         initialDelaySeconds: 30
+         periodSeconds: 10
+         timeoutSeconds: 5
+         failureThreshold: 3
         volumeMounts:
         - name: jenkins
           mountPath: /var/jenkins_home
