@@ -1,15 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: default
   name: jenkins
-  labels: 
-   name: jenkins
+  namespace: default
+  #labels: 
+   #name: jenkins
 spec:
   replicas: 1
   selector:
    matchLabels: 
-    name: jenkins
+    app: jenkins 
+    #name: jenkins
   strategy:
    type: RollingUpdate
    rollingUpdate: 
@@ -21,12 +22,17 @@ spec:
     metadata:
      labels: 
        app: jenkins 
-       name: jenkins
+       #name: jenkins
      annotations:
        blackbox_path: "/jenkins/login"
        blackbox_port: "8080"
        blackbox_scheme: "http"
     spec:
+      securityContext:
+       fsGroup: 1000
+       runAsUser: 1000
+      #nodeSelector:
+       #k8s: master
       nodeName: worker-1
       serviceAccountName: jenkins
       containers:
@@ -34,9 +40,11 @@ spec:
         image: easzlab.io.local:5000/easzlab/jenkinsci/blueocean:v2
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 8080
+        - name: httpport
+          containerPort: 8080
           protocol: TCP
-        - containerPort: 50000
+        - name: jnlpport
+          containerPort: 50000
           protocol: TCP
         env:
         - name: JAVA_OPTS
@@ -45,9 +53,6 @@ spec:
           value: --prefix=/jenkins
         - name: JENKINS_ARGS
           value: --prefix=/jenkins
-        volumeMounts:
-        - name: jenkins
-          mountPath: /var/jenkins_home
         resources:
           limits:
             cpu: 1000m
@@ -59,21 +64,29 @@ spec:
           httpGet:
             path: /jenkins/login
             port: 8080
-          initialDelaySeconds: 60
+          initialDelaySeconds: 90
+          periodSeconds: 10
           timeoutSeconds: 5
-          failureThreshold: 12
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /jenkins/login
             port: 8080
           initialDelaySeconds: 60
+          periodSeconds: 10
           timeoutSeconds: 5
-          failureThreshold: 12
+          failureThreshold: 3
+        volumeMounts:
+        - name: jenkins
+          mountPath: /var/jenkins_home
       volumes:
       - name: jenkins
         hostPath:
          path: /opt/jenkins 
          type: Directory
+        #persistentVolumeClaim:
+         #claimName: jenkins-pv-claim
+
       #  - name: docker
       #    mountPath: /run/docker.sock
       #volumes:
@@ -81,9 +94,5 @@ spec:
       #  hostPath: 
       #    path: /run/docker.sock
       #    type: ''
-      #nodeSelector:
-      # k8s: master
       #imagePullSecrets:
       #- name: harbor
-      #securityContext: 
-      #  runAsUser: 0
