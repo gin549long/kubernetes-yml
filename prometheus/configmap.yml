@@ -232,7 +232,7 @@ data:
         target_label: __param_target
       - action: replace
         target_label: __address__
-        replacement: blackbox-exporter.kube-system:9115
+        replacement: blackbox-exporter.default:9115
       - source_labels: [__param_target]
         target_label: instance
       - action: labelmap
@@ -261,7 +261,7 @@ data:
         target_label: __param_target
       - action: replace
         target_label: __address__
-        replacement: blackbox-exporter.kube-system:9115
+        replacement: blackbox-exporter.default:9115
       - source_labels: [__param_target]
         target_label: instance
       - action: labelmap
