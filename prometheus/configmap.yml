@@ -332,6 +332,21 @@ data:
         action: replace
         target_label: Env
 
+    - job_name: "kubernetes-service-dns"
+      metrics_path: /probe # 不是metrics是probe
+      params:
+        module: [dns] # 使用DNS模块
+      static_configs:
+      - targets:
+        - kube-dns.kube-system:53  #不要省略端口号
+      relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter.kube-system:9115  #服务地址和上面的Service定义保持一致   
+
     ############ 指定告警规则文件路径位置 ###################
     rule_files:
     - /etc/prometheus/rules/*.rules

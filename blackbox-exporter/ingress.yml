@@ -4,6 +4,7 @@ metadata:
   namespace: kube-system
   name: blackbox-exporter
 spec:
+  ingressClassName: nginx
   rules:
   - host: blackbox-exporter.kubernetes.cn
     http:
