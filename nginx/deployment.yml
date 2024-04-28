@@ -15,6 +15,9 @@ spec:
       labels:
         app: nginx
       annotations:
+        #prometheus_io_path: "/"
+        #prometheus_io_port: "80"
+        #prometheus_io_scrape: "true"
         blackbox_path: "/"
         blackbox_port: '80'
         blackbox_scheme: "http"
