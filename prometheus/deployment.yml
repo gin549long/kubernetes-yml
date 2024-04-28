@@ -49,18 +49,22 @@ spec:
         - --storage.tsdb.min-block-duration=5m #只加载普罗米修斯其中5min中内的数据
         - --storage.tsdb.retention.time=1h
         #- --storage.tsdb.retention=24h#之后版本将废弃的选项用上面的代替
-         #readinessProbe:
-           #httpGet:
-             #path: /-/ready
-             #port: 9090
-           #initialDelaySeconds: 5
-           #timeoutSeconds: 10
-         #livenessProbe:
-           #httpGet:
-             #path: /-/healthy
-             #port: 9090
-           #initialDelaySeconds: 30
-           #timeoutSeconds: 30
+        readinessProbe:
+         httpGet:
+           path: /-/ready
+           port: 9090
+         initialDelaySeconds: 30
+         periodSeconds: 10
+         timeoutSeconds: 5
+         failureThreshold: 3
+        livenessProbe:
+         httpGet:
+           path: /-/healthy
+           port: 9090
+         initialDelaySeconds: 30
+         periodSeconds: 10
+         timeoutSeconds: 5
+         failureThreshold: 3
         volumeMounts:
         - name: data
           mountPath: /prometheus
@@ -89,10 +93,10 @@ spec:
         resources:
           limits:
             cpu: 100m
-            memory: 100Mi
+            memory: 300Mi
           requests:
             cpu: 10m
-            memory: 10Mi
+            memory: 100Mi
         volumeMounts:
         - name: config
           mountPath: /etc/config
